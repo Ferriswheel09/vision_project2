@@ -1,26 +1,39 @@
+import os
 from PIL import Image
 from transformers import AutoImageProcessor, ResNetForImageClassification
 import torch
 import torch.nn.functional as F
-from datasets import load_dataset
 
-image_path = "./images/twohundred_corruption.jpg"
-image = Image.open(image_path)
+# Path to the directory containing images
+directory = "./images/"
 
+# Load the processor and model
 processor = AutoImageProcessor.from_pretrained("microsoft/resnet-50")
 model = ResNetForImageClassification.from_pretrained("microsoft/resnet-50")
 
-inputs = processor(image, return_tensors="pt")
+# Loop through all files in the directory
+for filename in os.listdir(directory):
+    image_path = os.path.join(directory, filename)
 
-with torch.no_grad():
-    logits = model(**inputs).logits
+    # Load the image using Pillow
+    image = Image.open(image_path)
 
-probs = F.softmax(logits, dim=-1)
+    # Prepare the image for the model
+    inputs = processor(image, return_tensors="pt")
 
+    # Run the model and get the logits (raw scores)
+    with torch.no_grad():
+        logits = model(**inputs).logits
 
-# model predicts one of the 1000 ImageNet classes
-predicted_label = logits.argmax(-1).item()
-confidence = probs[0, predicted_label].item()
+    # Apply softmax to get probabilities (confidence scores)
+    probs = F.softmax(logits, dim=-1)
 
-print(model.config.id2label[predicted_label])
-print(f"Confidence: {confidence:.4f}")
+    # Get the predicted label and its confidence
+    predicted_label = logits.argmax(-1).item()
+    confidence = probs[0, predicted_label].item()
+
+    # Print results for each image
+    print(f"Image: {filename}")
+    print(f"Predicted Label: {model.config.id2label[predicted_label]}")
+    print(f"Confidence: {confidence:.4f}")
+    print("-" * 40)
